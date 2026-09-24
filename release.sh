@@ -28,11 +28,15 @@ sed "s/{{VERSION}}/$VERSION/g" RELEASE_NOTES.md > "$NOTES"
 gh release create "v$VERSION" -R "$REPO" --title "Wakeintosh $VERSION" --notes-file "$NOTES" \
     "dist/Wakeintosh-$VERSION.dmg" "dist/Wakeintosh-$VERSION.zip"
 
-# Update the cask in the tap.
+# Update the cask in the tap, committed as this repo's git identity.
+NAME="$(git config user.name)"
+EMAIL="$(git config user.email)"
 SHA=$(gh api "repos/$TAP/contents/Casks/wakeintosh.rb" --jq .sha 2>/dev/null || true)
 gh api -X PUT "repos/$TAP/contents/Casks/wakeintosh.rb" \
     -f message="Brew cask update for wakeintosh version v$VERSION" \
     -f content="$(base64 -i Casks/wakeintosh.rb)" \
+    -f "author[name]=$NAME" -f "author[email]=$EMAIL" \
+    -f "committer[name]=$NAME" -f "committer[email]=$EMAIL" \
     ${SHA:+-f sha="$SHA"} >/dev/null
 
 echo "Released v$VERSION"
