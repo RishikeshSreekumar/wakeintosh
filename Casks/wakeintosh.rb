@@ -1,6 +1,6 @@
 cask "wakeintosh" do
   version "1.0"
-  sha256 "c22f2554b382a0b06879c2d2dacde141e986b86bb0fb746aa3c33674c4ffa743"
+  sha256 "f414b89d39059ea1ece1f5031aa78247cd91bee888a5af9f8172565ffac8ee25"
 
   url "https://github.com/RishikeshSreekumar/wakeintosh/releases/download/v#{version}/Wakeintosh-#{version}.zip"
   name "Wakeintosh"
