@@ -1,0 +1,1167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wakeintosh, keeps your Mac wide awake</title>
+<meta name="description" content="Wakeintosh is a tiny menu bar app that stops your Mac from sleeping, for as long as you want or until a timer runs out. Open source, for macOS 13 and later.">
+<link rel="icon" href="icon-64.png">
+<link rel="apple-touch-icon" href="icon.png">
+<meta property="og:title" content="Wakeintosh">
+<meta property="og:description" content="A tiny menu bar app that keeps your Mac wide awake, forever or for as long as you choose.">
+<meta property="og:image" content="og.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#121034">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Colours come from the app icon (assets/make_art.swift). */
+  :root {
+    --night: #121034;
+    --night-2: #1b1f4b;
+    --indigo: #2b2a6b;
+    --plum: #7b3f8c;
+    --coral: #f26b5b;
+    --amber: #ffb35c;
+    --sun: #ffd36e;
+    --sun-pale: #ffe7a3;
+    --cream: #f1e9d8;
+    --cream-hi: #fbf6eb;
+    --cream-lo: #e6dcc6;
+    --bezel: #cfc3a8;
+    --slot: #8f826a;
+    --led: #5cff9d;
+    --glow: #7fe7ff;
+    --text: #f4efe6;
+    --muted: rgba(244, 239, 230, .72);
+    --faint: rgba(244, 239, 230, .5);
+    --line: rgba(244, 239, 230, .14);
+    --card: rgba(255, 255, 255, .045);
+    --display: "Fraunces", Georgia, "Times New Roman", serif;
+    --sans: "Figtree", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --mac: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    color: var(--text);
+    font: 17px/1.6 var(--sans);
+    -webkit-font-smoothing: antialiased;
+    background: var(--night);
+    background-image: linear-gradient(180deg, #100e2e 0%, #15143c 22%, #1b1c4c 45%, #26265f 65%, #3a2a6c 82%, #5a3480 100%);
+    overflow-x: hidden;
+  }
+  a { color: var(--amber); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  a:hover { color: var(--sun); }
+  code, kbd { font-family: var(--mono); font-size: .9em; }
+  p code, li code, dd code, summary code {
+    background: rgba(255,255,255,.08); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px;
+    overflow-wrap: anywhere;
+  }
+  h1, h2, h3 { margin: 0; font-family: var(--display); font-weight: 800; letter-spacing: -.02em; line-height: 1.08; }
+  h2 { font-size: clamp(32px, 4.6vw, 50px); }
+  h3 { font-size: 22px; font-weight: 600; letter-spacing: -.01em; line-height: 1.25; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+  .kicker { margin: 0 0 14px; font-weight: 700; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--amber); }
+  .sub { color: var(--muted); font-size: 19px; max-width: 620px; margin: 18px 0 0; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  :focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; border-radius: 6px; }
+
+  /* buttons */
+  .btn {
+    display: inline-flex; align-items: center; gap: 9px; height: 52px; padding: 0 24px; border-radius: 999px;
+    font: 700 16px/1 var(--sans); text-decoration: none; border: 0; cursor: pointer; white-space: nowrap;
+  }
+  .btn-sun { background: linear-gradient(180deg, var(--sun), var(--amber)); color: var(--indigo); box-shadow: 0 0 0 1px rgba(255,211,110,.4), 0 10px 30px -10px rgba(255,179,92,.7); }
+  .btn-sun:hover { color: var(--indigo); filter: brightness(1.05); }
+  .btn-line { color: var(--text); background: transparent; box-shadow: inset 0 0 0 1.5px rgba(244,239,230,.45); }
+  .btn-line:hover { color: var(--text); background: rgba(255,255,255,.07); }
+  .btn-ink { background: var(--indigo); color: var(--text); }
+  .btn-ink:hover { color: #fff; background: #3a3986; }
+
+  /* copyable command */
+  .cmd {
+    display: flex; align-items: center; gap: 10px; min-width: 0;
+    background: rgba(8, 7, 30, .55); border: 1px solid var(--line); border-radius: 14px; padding: 6px 6px 6px 16px;
+    font: 14px/1.4 var(--mono); color: var(--text);
+  }
+  .cmd > span { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; padding: 8px 0; scrollbar-width: none; }
+  .cmd > span::-webkit-scrollbar { display: none; }
+  .cmd .pr { color: var(--amber); user-select: none; margin-right: 8px; }
+  .copy {
+    flex: none; height: 34px; padding: 0 12px; border-radius: 9px; border: 0; cursor: pointer;
+    background: rgba(255,255,255,.1); color: var(--text); font: 600 13px/1 var(--sans);
+  }
+  .copy:hover { background: rgba(255,255,255,.18); }
+
+  /* top bar */
+  .top { position: relative; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 0; }
+  .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); font: 800 22px/1 var(--display); letter-spacing: -.01em; }
+  .brand:hover { color: var(--text); }
+  .brand img { width: 34px; height: 34px; }
+  .brand b { font-weight: 800; color: var(--coral); }
+  .top nav { display: flex; align-items: center; gap: 24px; font-size: 15px; font-weight: 600; }
+  .top nav a { color: var(--muted); text-decoration: none; }
+  .top nav a:hover { color: var(--text); }
+  .top nav .pill { color: var(--indigo); background: var(--sun); padding: 8px 16px; border-radius: 999px; }
+  .top nav .pill:hover { color: var(--indigo); background: var(--sun-pale); }
+
+  /* hero: the sky */
+  .hero { position: relative; overflow: hidden; padding-bottom: 0; isolation: isolate; }
+  .stars { position: absolute; inset: 0; z-index: -2; transition: opacity 2.5s ease; opacity: .6; pointer-events: none; }
+  .stars i { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #fff; animation: twinkle 4s ease-in-out infinite; }
+  @keyframes twinkle { 50% { opacity: .25; } }
+  .sunwrap {
+    position: absolute; z-index: -1; left: 74%; bottom: 200px; width: 0; height: 0;
+    transition: transform 2.5s cubic-bezier(.4,0,.2,1), opacity 2.5s ease;
+  }
+  .glow { position: absolute; left: -560px; top: -560px; width: 1120px; height: 1120px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,224,138,.55) 0, rgba(255,179,92,.28) 26%, rgba(242,107,91,.12) 45%, rgba(123,63,140,0) 66%); }
+  .rays { position: absolute; left: -620px; top: -620px; width: 1240px; height: 1240px; border-radius: 50%;
+    background: repeating-conic-gradient(from 0deg, rgba(255,231,163,.16) 0 4deg, transparent 4deg 25.7deg);
+    -webkit-mask: radial-gradient(circle, transparent 0 190px, #000 200px, transparent 70%);
+            mask: radial-gradient(circle, transparent 0 190px, #000 200px, transparent 70%);
+    animation: spin 160s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .sun { position: absolute; left: -200px; top: -200px; width: 400px; height: 400px; border-radius: 50%;
+    background: radial-gradient(circle at 50% 40%, #ffe9a8, var(--sun) 55%, #ffbf63); box-shadow: 0 0 80px 10px rgba(255,211,110,.35); }
+  .hero[data-sky="dusk"] .sunwrap { transform: translateY(70px); opacity: .7; }
+  .hero[data-sky="night"] .sunwrap { transform: translateY(260px); opacity: .08; }
+  .hero[data-sky="night"] .stars { opacity: 1; }
+  .hero[data-sky="day"] .stars { opacity: .45; }
+
+  .ground {
+    position: absolute; z-index: -1; left: -10%; right: -10%; bottom: 0; height: 190px;
+    border-radius: 50% 50% 0 0 / 70px 70px 0 0;
+    background: linear-gradient(180deg, #4a2a63, #22183b 70%);
+    box-shadow: 0 -1px 0 rgba(255,211,110,.25);
+  }
+  .hero-grid > *, .anno > *, .how > *, .inst > *, .feats > * { min-width: 0; }
+  .hero-grid { display: grid; grid-template-columns: 1.02fr 1fr; gap: 40px; align-items: end; padding-top: 40px; }
+  .hero-copy { padding-bottom: 210px; }
+  h1 { font-size: clamp(44px, 5.4vw, 70px); }
+  h1 .wide { color: var(--coral); white-space: nowrap; }
+  .lede { font-size: 20px; color: var(--muted); max-width: 520px; margin: 22px 0 30px; }
+  .lede b { color: var(--text); font-weight: 600; }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .hero .cmd { margin-top: 16px; max-width: 470px; }
+  .fine { margin: 18px 0 0; font-size: 14.5px; color: var(--faint); }
+  .fine a { color: var(--muted); }
+
+  /* ------- the demo Mac ------- */
+  .demo { position: relative; display: flex; flex-direction: column; align-items: center; padding-bottom: 26px; }
+  .macfit { width: 100%; max-width: 460px; }
+  .mac {
+    position: relative; width: 460px; transform-origin: top left;
+    padding: 26px 26px 0; border-radius: 32px;
+    background: linear-gradient(140deg, var(--cream-hi), var(--cream-lo));
+    box-shadow: inset 0 2px 0 rgba(255,255,255,.7), inset 0 -26px 0 rgba(217,205,179,.6), 0 30px 60px -20px rgba(26,15,46,.85);
+    font-family: var(--mac); color: #1d1d1f; user-select: none; -webkit-user-select: none;
+  }
+  .bezel { background: var(--bezel); border-radius: 22px; padding: 16px; box-shadow: inset 0 2px 6px rgba(80,66,40,.35); }
+  .screen {
+    position: relative; height: 360px; border-radius: 12px; overflow: hidden;
+    background: radial-gradient(ellipse at 50% 42%, rgba(127,231,255,.22), rgba(127,231,255,0) 55%), linear-gradient(180deg, #2e3b7a, #15183a);
+    cursor: default;
+  }
+  .chin { height: 76px; display: flex; align-items: center; justify-content: space-between; padding: 0 22px 18px; }
+  .led { width: 11px; height: 11px; border-radius: 50%; background: var(--led); box-shadow: 0 0 10px var(--led); transition: opacity .4s; }
+  .led.sleeping { animation: breathe 3.2s ease-in-out infinite; }
+  @keyframes breathe { 0%, 100% { opacity: .15; } 50% { opacity: .9; } }
+  .slotbar { width: 120px; height: 9px; border-radius: 5px; background: var(--slot); box-shadow: inset 0 2px 2px rgba(0,0,0,.25); }
+
+  /* macOS bits inside the screen */
+  .mbar {
+    position: relative; z-index: 3; height: 24px; display: flex; align-items: center; justify-content: space-between;
+    padding: 0 8px 0 12px; font-size: 13px; color: #fff;
+    background: rgba(20, 18, 52, .45); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  }
+  .mbar .l { display: flex; gap: 14px; align-items: center; }
+  .mbar .l .apple { width: 12px; height: 14px; }
+  .mbar .r { display: flex; gap: 6px; align-items: center; font-variant-numeric: tabular-nums; }
+  .mb-item {
+    display: flex; align-items: center; gap: 3px; height: 20px; padding: 0 6px; border-radius: 4px; border: 0;
+    background: transparent; color: #fff; font: 13px/1 var(--mac); font-variant-numeric: tabular-nums; cursor: default;
+  }
+  .mb-item.open, .mb-item:hover { background: rgba(255,255,255,.22); }
+  .mb-item img { width: 18px; height: 18px; display: block; transition: filter .2s, opacity .2s; }
+  .mb-item.off img { filter: grayscale(1); opacity: .55; }
+  .mb-item[hidden] { display: none; }
+  .clock { padding: 0 4px; white-space: nowrap; }
+
+  .eyes { position: absolute; left: 0; right: 0; top: 64px; display: flex; justify-content: center; gap: 30px; pointer-events: none; }
+  .eye { position: relative; width: 74px; height: 84px; }
+  .eye svg { display: block; overflow: visible; }
+  .lid { transform-box: fill-box; transform-origin: 50% 0; transform: scaleY(var(--lid, 0)); transition: transform .9s cubic-bezier(.4,0,.2,1); }
+  .blink .lid { transform: scaleY(1); transition-duration: .09s; }
+  .lash { transition: opacity .6s; }
+
+  .win {
+    position: absolute; left: 50%; bottom: 22px; width: 280px; margin-left: -140px; z-index: 1;
+    background: rgba(246, 246, 248, .94); border-radius: 10px; padding: 10px 14px 12px;
+    box-shadow: 0 0 0 .5px rgba(0,0,0,.25), 0 12px 30px rgba(0,0,0,.4); font-size: 12px; color: #1d1d1f;
+  }
+  .win .dots { display: flex; gap: 6px; margin-bottom: 9px; }
+  .win .dots i { width: 10px; height: 10px; border-radius: 50%; background: #ff5f57; }
+  .win .dots i:nth-child(2) { background: #febc2e; }
+  .win .dots i:nth-child(3) { background: #28c840; }
+  .win .row { display: flex; justify-content: space-between; gap: 10px; font-weight: 600; }
+  .win .row span:last-child { font-weight: 400; color: #6e6e73; font-variant-numeric: tabular-nums; }
+  .bar { height: 6px; border-radius: 3px; background: #dcdce0; margin-top: 8px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: #0a84ff; border-radius: 3px; }
+
+  .shade { position: absolute; inset: 0; z-index: 6; background: #000; opacity: 0; pointer-events: none; transition: opacity 1.2s ease; }
+  .shade.dim { opacity: .55; }
+  .shade.off { opacity: 1; }
+  .zzz { position: absolute; inset: 0; z-index: 7; display: grid; place-items: center; color: rgba(255,255,255,.35); font: 600 13px/1.4 var(--sans); text-align: center; opacity: 0; transition: opacity 1s; pointer-events: none; }
+  .zzz.on { opacity: 1; transition-delay: 1s; }
+
+  /* NSMenu look-alike */
+  .mmenu {
+    position: absolute; z-index: 5; top: 26px; right: 6px; min-width: 228px; padding: 5px;
+    background: rgba(238, 236, 244, .9); -webkit-backdrop-filter: blur(24px) saturate(1.6); backdrop-filter: blur(24px) saturate(1.6);
+    border-radius: 9px; box-shadow: 0 0 0 .5px rgba(0,0,0,.28), 0 14px 36px rgba(0,0,0,.42);
+    font: 13px/1 var(--mac); color: #1d1d1f;
+  }
+  .mmenu[hidden] { display: none; }
+  .mi {
+    display: flex; align-items: center; height: 19px; padding: 0 10px 0 0; border-radius: 4px; white-space: nowrap;
+    font-variant-numeric: tabular-nums; outline: none;
+  }
+  .mi .ck { width: 20px; flex: none; text-align: center; font-size: 11px; font-weight: 700; }
+  .mi .ind { width: 14px; flex: none; }
+  .mi .key { margin-left: auto; padding-left: 24px; color: #6e6e73; }
+  .mi.dis { color: rgba(29,29,31,.42); }
+  .mi:not(.dis):hover, .mi:not(.dis):focus { background: #0a6cff; color: #fff; }
+  .mi:not(.dis):hover .key, .mi:not(.dis):focus .key { color: rgba(255,255,255,.8); }
+  .msep { height: 1px; margin: 4px 10px; background: rgba(0,0,0,.12); }
+
+  /* NSAlert look-alike for Custom… */
+  .alert {
+    position: absolute; z-index: 8; left: 50%; top: 58px; width: 252px; margin-left: -126px; padding: 18px 16px 14px;
+    background: rgba(240, 238, 245, .96); border-radius: 12px; text-align: center;
+    box-shadow: 0 0 0 .5px rgba(0,0,0,.25), 0 20px 50px rgba(0,0,0,.5); font: 13px/1.35 var(--mac); color: #1d1d1f;
+  }
+  .alert[hidden] { display: none; }
+  .alert img { width: 52px; height: 52px; display: block; margin: 0 auto 8px; }
+  .alert b { display: block; font-weight: 700; margin-bottom: 4px; }
+  .alert p { margin: 0 0 10px; font-size: 11.5px; }
+  .alert input {
+    width: 100%; height: 24px; border: 0; border-radius: 5px; padding: 0 7px; font: 13px var(--mac); color: #1d1d1f;
+    background: #fff; box-shadow: 0 0 0 .5px rgba(0,0,0,.3); outline: none;
+  }
+  .alert input:focus { box-shadow: 0 0 0 3px rgba(10,108,255,.45); }
+  .alert .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+  .alert button { height: 26px; border: 0; border-radius: 6px; font: 13px var(--mac); cursor: default; background: #fff; color: #1d1d1f; box-shadow: 0 0 0 .5px rgba(0,0,0,.2), 0 1px 1px rgba(0,0,0,.08); }
+  .alert button.def { background: #0a6cff; color: #fff; box-shadow: none; }
+
+  /* status strip under the Mac */
+  .readout {
+    width: 100%; max-width: 460px; margin-top: 18px; padding: 14px 16px; border-radius: 16px;
+    background: rgba(16, 13, 44, .88); border: 1px solid var(--line); font-size: 14px;
+  }
+  .readout dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 0; }
+  .readout dt { color: var(--faint); }
+  .readout dd { margin: 0; font-weight: 600; min-width: 0; }
+  .readout dd code { font-weight: 400; font-size: 12.5px; }
+  .state { display: inline-flex; align-items: center; gap: 7px; }
+  .state::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--led); box-shadow: 0 0 8px var(--led); }
+  .state.warn::before { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+  .state.bad::before { background: #8a86b5; box-shadow: none; }
+  .hint { margin: 10px 2px 0; color: var(--faint); font-size: 13.5px; line-height: 1.5; }
+  .reopen { margin-left: 8px; padding: 3px 10px; border-radius: 999px; border: 0; background: var(--sun); color: var(--indigo); font: 700 12.5px var(--sans); cursor: pointer; }
+
+  /* ------- sections ------- */
+  section { padding: 120px 0 0; }
+  .head { max-width: 760px; }
+
+  /* the menu, annotated */
+  .anno { display: grid; grid-template-columns: 340px 1fr; gap: 56px; margin-top: 56px; align-items: start; }
+  .anno .mmenu { position: sticky; top: 90px; inset: auto; width: 100%; font-size: 14px; padding: 6px; }
+  .anno .mi { height: 23px; }
+  .anno .mi:not(.dis):hover { background: none; color: inherit; }
+  .anno .mi.hl { background: #0a6cff; color: #fff; }
+  .anno .mi.hl .key { color: rgba(255,255,255,.8); }
+  .pin { margin-left: auto; width: 18px; height: 18px; flex: none; border-radius: 50%; display: grid; place-items: center; font: 700 10.5px/1 var(--sans); background: var(--coral); color: #fff; }
+  .anno .mi .pin + .key { margin-left: 8px; padding-left: 0; }
+  .notes { list-style: none; margin: 0; padding: 0; counter-reset: n; display: grid; gap: 4px; }
+  .notes li { display: grid; grid-template-columns: 30px 1fr; gap: 12px; padding: 14px 16px; border-radius: 14px; cursor: default; transition: background .15s; }
+  .notes li:hover, .notes li.hl { background: var(--card); }
+  .notes li::before { counter-increment: n; content: counter(n); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font: 700 13px/1 var(--sans); background: var(--coral); color: #fff; margin-top: 2px; }
+  .notes b { display: block; font-weight: 700; margin-bottom: 2px; }
+  .notes span { color: var(--muted); font-size: 16px; }
+
+  /* features */
+  .feats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 52px; }
+  .feat { background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 26px 24px 24px; }
+  .feat .ico { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; margin-bottom: 18px;
+    background: linear-gradient(160deg, rgba(255,211,110,.22), rgba(242,107,91,.14)); color: var(--sun); }
+  .feat .ico svg { width: 24px; height: 24px; }
+  .feat p { margin: 10px 0 0; color: var(--muted); font-size: 16px; }
+  .feat .eg { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 7px;
+    background: rgba(20,18,52,.7); border: 1px solid var(--line); font: 13px/1 var(--mac); font-variant-numeric: tabular-nums; color: #fff; }
+  .chip img { width: 16px; height: 16px; }
+  .chip img.g { filter: grayscale(1); opacity: .55; }
+
+  /* how it works */
+  .how { display: grid; grid-template-columns: 1fr 1.1fr; gap: 48px; margin-top: 52px; align-items: start; }
+  .ctl { background: var(--card); border: 1px solid var(--line); border-radius: 22px; padding: 24px; }
+  .ctl label.lab { display: block; font-weight: 700; font-size: 14px; margin-bottom: 10px; color: var(--muted); }
+  .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+  .seg button {
+    height: 34px; padding: 0 12px; border-radius: 9px; border: 1px solid var(--line); background: transparent; color: var(--text);
+    font: 600 14px/1 var(--sans); cursor: pointer;
+  }
+  .seg button:hover { background: rgba(255,255,255,.07); }
+  .seg button[aria-pressed="true"] { background: var(--sun); color: var(--indigo); border-color: var(--sun); }
+  .custom-min { display: inline-flex; align-items: center; gap: 8px; margin-top: 12px; color: var(--muted); font-size: 14px; }
+  .custom-min[hidden] { display: none; }
+  .custom-min input { width: 84px; height: 34px; border-radius: 9px; border: 1px solid var(--line); background: rgba(0,0,0,.25); color: var(--text); padding: 0 10px; font: 600 14px var(--sans); }
+  .toggle { display: flex; align-items: center; gap: 12px; margin-top: 22px; font-weight: 600; cursor: pointer; }
+  .toggle input { appearance: none; -webkit-appearance: none; flex: none; width: 42px; height: 24px; border-radius: 999px; background: rgba(255,255,255,.18); position: relative; cursor: pointer; transition: background .2s; margin: 0; }
+  .toggle input::after { content: ""; position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .2s; }
+  .toggle input:checked { background: var(--coral); }
+  .toggle input:checked::after { transform: translateX(18px); }
+  .term {
+    background: linear-gradient(160deg, var(--cream-hi), var(--cream-lo)); color: var(--indigo); border-radius: 22px; padding: 22px 22px 18px;
+    box-shadow: 0 30px 60px -30px rgba(0,0,0,.6);
+  }
+  .term .line { font: 600 clamp(15px, 2vw, 19px)/1.5 var(--mono); overflow-wrap: anywhere; }
+  .term .line .pr { color: var(--coral); }
+  .term code { background: none; border: 0; padding: 0; }
+  .tok { border-radius: 4px; padding: 1px 0; transition: background .15s; cursor: default; }
+  .tok.hl { background: rgba(242,107,91,.22); }
+  .flags { list-style: none; margin: 18px 0 0; padding: 14px 0 0; border-top: 1px solid rgba(43,42,107,.15); display: grid; gap: 2px; }
+  .flags li { display: grid; grid-template-columns: 74px 1fr; gap: 12px; padding: 7px 8px; border-radius: 8px; font-size: 15px; line-height: 1.45; transition: background .15s, opacity .2s; }
+  .flags li.hl { background: rgba(242,107,91,.14); }
+  .flags li.gone { opacity: .45; }
+  .flags li.gone code { text-decoration: line-through; }
+  .flags code { font: 700 14px/1.45 var(--mono); color: var(--coral); }
+  .flags small { display: block; color: rgba(43,42,107,.7); font-size: 13.5px; }
+  .how-note { color: var(--muted); font-size: 15.5px; margin: 18px 0 0; }
+
+  /* install */
+  .inst { display: grid; grid-template-columns: 1.3fr 1fr; gap: 22px; margin-top: 52px; align-items: start; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 24px; padding: 28px; }
+  .tabs { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: rgba(0,0,0,.25); width: max-content; max-width: 100%; overflow-x: auto; }
+  .tabs button { height: 34px; padding: 0 14px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font: 600 14.5px/1 var(--sans); cursor: pointer; white-space: nowrap; }
+  .tabs button[aria-selected="true"] { background: rgba(255,255,255,.12); color: var(--text); }
+  .pane { margin-top: 22px; }
+  .pane[hidden] { display: none; }
+  .pane ol { margin: 16px 0 0; padding-left: 22px; color: var(--muted); }
+  .pane ol li { margin: 6px 0; }
+  .pane ol b { color: var(--text); }
+  .pane p { color: var(--muted); margin: 14px 0 0; font-size: 15.5px; }
+  .pane .cmd + .cmd { margin-top: 8px; }
+  .gk { margin-top: 22px; padding: 16px 18px; border-radius: 16px; border: 1px dashed rgba(255,211,110,.4); background: rgba(255,211,110,.06); font-size: 15px; color: var(--muted); }
+  .gk b { color: var(--sun); }
+  .gk .cmd { margin-top: 10px; }
+  .reqs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+  .reqs span { font-size: 13.5px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .support { text-align: center; background: radial-gradient(circle at 50% 0, rgba(255,211,110,.18), rgba(255,255,255,.03) 60%); }
+  .support .mug { width: 64px; height: 64px; margin: 0 auto 14px; display: block; }
+  .support h3 { font-size: 26px; font-weight: 800; }
+  .support p { color: var(--muted); font-size: 16px; margin: 10px 0 20px; }
+  /* Buy Me a Coffee widget. Its script writes .bmc-btn in place; these only lay it out. */
+  .bmc-slot { display: flex; justify-content: center; }
+  .bmc-btn-container { display: inline-flex; }
+  .bmc-btn { box-shadow: 0 2px 0 #b8473a; }
+  .bmc-btn:hover { filter: brightness(1.06); }
+  .bmc-fallback { display: none; }
+  .support .small { font-size: 14px; color: var(--faint); margin: 18px 0 0; }
+
+  /* faq */
+  .faq { margin-top: 44px; max-width: 800px; }
+  details { border-top: 1px solid var(--line); }
+  details:last-child { border-bottom: 1px solid var(--line); }
+  summary { list-style: none; cursor: pointer; padding: 20px 44px 20px 0; position: relative; font-weight: 700; font-size: 18.5px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: ""; position: absolute; right: 10px; top: 50%; width: 11px; height: 11px; margin-top: -8px; border-right: 2px solid var(--amber); border-bottom: 2px solid var(--amber); transform: rotate(45deg); transition: transform .2s; }
+  details[open] summary::after { transform: rotate(-135deg); margin-top: -2px; }
+  details p { margin: -4px 0 22px; color: var(--muted); max-width: 700px; }
+
+  /* sunrise finale */
+  .dawn { position: relative; overflow: hidden; margin-top: 90px; padding: 220px 0 0; text-align: center; color: var(--indigo);
+    background: linear-gradient(180deg, rgba(90,52,128,0) 0, #9a4a86 12%, var(--coral) 27%, #ff9e5e 42%, var(--amber) 62%, var(--sun) 100%); }
+  .dawn .bigsun { position: absolute; left: 50%; bottom: -330px; width: 640px; height: 640px; margin-left: -320px; border-radius: 50%;
+    background: radial-gradient(circle at 50% 35%, #fff3c7, var(--sun) 50%, #ffc56b); box-shadow: 0 0 140px 40px rgba(255,231,163,.55); }
+  .dawn .inner { position: relative; }
+  .dawn h2 { color: var(--indigo); }
+  .dawn p { color: rgba(43,42,107,.82); font-size: 19px; max-width: 560px; margin: 16px auto 30px; }
+  .dawn .cta { justify-content: center; }
+  .dawn .btn-line { color: var(--indigo); box-shadow: inset 0 0 0 1.5px rgba(43,42,107,.55); }
+  .dawn .btn-line:hover { background: rgba(43,42,107,.08); }
+  .dawn .bmc-btn { box-shadow: 0 2px 0 rgba(43,42,107,.35); }
+  footer { position: relative; margin-top: 110px; padding: 26px 0 30px; font-size: 14.5px; color: rgba(43,42,107,.85); border-top: 1px solid rgba(43,42,107,.18); }
+  footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  footer a { color: var(--indigo); font-weight: 600; }
+  footer a:hover { color: #000; }
+
+  @media (max-width: 980px) {
+    .hero-grid { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+    .hero-copy { padding-bottom: 0; }
+    .sunwrap { left: 50%; bottom: 300px; }
+    .ground { height: 330px; border-radius: 50% 50% 0 0 / 50px 50px 0 0; }
+    .anno { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+    .anno .mmenu { max-width: 380px; position: relative; top: auto; }
+    .feats { grid-template-columns: 1fr 1fr; }
+    .how, .inst { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (max-width: 640px) {
+    body { font-size: 16px; }
+    .wrap { padding: 0 16px; }
+    .top nav a:not(.pill) { display: none; }
+    .hero-grid { padding-top: 16px; }
+    .lede { font-size: 18px; }
+    .btn { height: 48px; padding: 0 20px; font-size: 15px; }
+    .feats { grid-template-columns: minmax(0, 1fr); }
+    section { padding-top: 88px; }
+    .card { padding: 22px 18px; }
+    .ctl, .term { padding: 20px 16px; }
+    .flags li { grid-template-columns: 60px 1fr; gap: 8px; }
+    .notes li { padding: 12px 8px; }
+    .dawn { padding-top: 190px; margin-top: 70px; }
+    .dawn .bigsun { width: 460px; height: 460px; margin-left: -230px; bottom: -250px; }
+    summary { font-size: 17px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero" id="hero" data-sky="day">
+  <div class="stars" id="stars" aria-hidden="true"></div>
+  <div class="sunwrap" aria-hidden="true"><div class="glow"></div><div class="rays"></div><div class="sun"></div></div>
+  <div class="ground" aria-hidden="true"></div>
+
+  <div class="wrap">
+    <div class="top">
+      <a class="brand" href="#"><img src="icon-64.png" alt=""><span><b>Wake</b>intosh</span></a>
+      <nav>
+        <a href="#menu">The menu</a>
+        <a href="#how">How it works</a>
+        <a href="#faq">FAQ</a>
+        <a href="https://github.com/RishikeshSreekumar/wakeintosh">GitHub</a>
+        <a class="pill" href="#install">Install</a>
+      </nav>
+    </div>
+
+    <div class="hero-grid">
+      <div class="hero-copy">
+        <h1>Keeps your Mac <span class="wide">wide awake.</span></h1>
+        <p class="lede">A tiny menu bar app that stops your Mac from sleeping. <b>Leave it on for as long as you like</b>, or set a timer and your Mac goes back to normal when it runs out.</p>
+        <div class="cta">
+          <a class="btn btn-sun" href="https://github.com/RishikeshSreekumar/wakeintosh/releases/latest">
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1v9m0 0L4.5 6.5M8 10l3.5-3.5M2 13.5h12" stroke="currentColor" stroke-width="1.9" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Download for Mac
+          </a>
+          <a class="btn btn-line" href="#install">Other ways to install</a>
+        </div>
+        <div class="cmd"><span><span class="pr">$</span>brew install --cask rishikeshsreekumar/tap/wakeintosh</span><button class="copy" type="button" data-copy="brew install --cask rishikeshsreekumar/tap/wakeintosh">Copy</button></div>
+        <p class="fine">Version 1.0 · macOS 13 or later · Apple Silicon and Intel · <a href="https://github.com/RishikeshSreekumar/wakeintosh">Open source</a></p>
+      </div>
+
+      <div class="demo" aria-label="Interactive preview of Wakeintosh">
+        <div class="macfit" id="macfit">
+          <div class="mac" id="mac">
+            <div class="bezel">
+              <div class="screen" id="screen">
+                <div class="mbar">
+                  <div class="l">
+                    <svg class="apple" viewBox="0 0 17 20" aria-hidden="true"><path fill="#fff" d="M14.1 10.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.4-.9C3.6 4.8 2 5.8 1.1 7.4c-1.9 3.2-.5 8 1.3 10.6.9 1.3 2 2.7 3.3 2.6 1.3-.1 1.8-.9 3.4-.9s2 .9 3.4.8c1.4 0 2.3-1.3 3.2-2.6 1-1.5 1.4-2.9 1.4-3-.1 0-2.9-1.1-3-4.3zM11.5 2.9c.7-.9 1.2-2.1 1.1-3.3-1 0-2.3.7-3 1.6-.7.8-1.3 2-1.1 3.2 1.1.1 2.3-.6 3-1.5z"/></svg>
+                    <b>Finder</b><span>File</span><span>Edit</span>
+                  </div>
+                  <div class="r">
+                    <button class="mb-item off" id="mbItem" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="wkMenu" title="Wakeintosh: Off — Mac can sleep normally">
+                      <img src="icon-64.png" alt="Wakeintosh off" id="mbIcon"><span id="mbTitle"></span>
+                    </button>
+                    <span class="clock" id="clock">Mon 9:41 AM</span>
+                  </div>
+                </div>
+
+                <div class="eyes" id="eyes" aria-hidden="true">
+                  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><linearGradient id="iris" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#36c2e8"/><stop offset="1" stop-color="#1c5fb8"/></linearGradient><clipPath id="eyeClip"><ellipse cx="37" cy="50" rx="30" ry="33"/></clipPath></defs></svg>
+                  <div class="eye"><svg width="74" height="84" viewBox="0 0 74 84"><g class="lash"><path d="M37 2v10M19 7l5 9M55 7l-5 9" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".9"/></g><ellipse cx="37" cy="50" rx="30" ry="33" fill="#fff" style="filter:drop-shadow(0 0 10px rgba(159,240,255,.8))"/><g clip-path="url(#eyeClip)"><circle cx="40" cy="44" r="16" fill="url(#iris)"/><circle cx="40" cy="44" r="8" fill="#0d1026"/><circle cx="44" cy="40" r="4" fill="#fff"/><rect class="lid" x="4" y="16" width="66" height="70" fill="#2c3a7e"/></g></svg></div>
+                  <div class="eye"><svg width="74" height="84" viewBox="0 0 74 84"><g class="lash"><path d="M37 2v10M19 7l5 9M55 7l-5 9" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".9"/></g><ellipse cx="37" cy="50" rx="30" ry="33" fill="#fff" style="filter:drop-shadow(0 0 10px rgba(159,240,255,.8))"/><g clip-path="url(#eyeClip)"><circle cx="40" cy="44" r="16" fill="url(#iris)"/><circle cx="40" cy="44" r="8" fill="#0d1026"/><circle cx="44" cy="40" r="4" fill="#fff"/><rect class="lid" x="4" y="16" width="66" height="70" fill="#2c3a7e"/></g></svg></div>
+                </div>
+
+                <div class="win" aria-hidden="true">
+                  <div class="dots"><i></i><i></i><i></i></div>
+                  <div class="row"><span id="dlName">Downloading Footage.zip</span><span id="dlPct">18%</span></div>
+                  <div class="bar"><i id="dlBar"></i></div>
+                </div>
+
+                <div class="mmenu" id="wkMenu" role="menu" aria-label="Wakeintosh menu" hidden></div>
+
+                <div class="alert" id="alert" role="dialog" aria-modal="true" aria-labelledby="alertTitle" hidden>
+                  <img src="icon-64.png" alt="">
+                  <b id="alertTitle">Keep Mac awake for how long?</b>
+                  <p>Enter minutes.</p>
+                  <input id="alertField" inputmode="numeric" aria-label="Minutes">
+                  <div class="btns"><button type="button" id="alertCancel">Cancel</button><button type="button" class="def" id="alertStart">Start</button></div>
+                </div>
+
+                <div class="shade" id="shade"></div>
+                <div class="zzz" id="zzz">Asleep<br>Click to wake</div>
+              </div>
+            </div>
+            <div class="chin"><span class="led" id="led"></span><span class="slotbar"></span></div>
+          </div>
+        </div>
+
+        <div class="readout" aria-live="polite">
+          <dl>
+            <dt>Wakeintosh</dt><dd id="roApp">Off — Mac can sleep normally</dd>
+            <dt>Display</dt><dd><span class="state" id="roDisplay">On</span></dd>
+            <dt>Mac</dt><dd><span class="state" id="roMac">Awake</span></dd>
+            <dt>Running</dt><dd id="roCmd">Nothing</dd>
+          </dl>
+        </div>
+        <p class="hint">Click the little Mac in the menu bar. Time here runs 60 times faster, so a 15 minute timer takes 15 seconds. Leave Wakeintosh off and the Mac dozes after about 15 seconds without a click.</p>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section id="menu">
+    <div class="wrap">
+      <p class="kicker">The menu</p>
+      <div class="head">
+        <h2>Everything lives in one menu.</h2>
+        <p class="sub">There's no window and no settings screen. Click the icon in your menu bar and pick how long. Here's the menu while a one hour timer is running.</p>
+      </div>
+      <div class="anno">
+        <div class="mmenu" id="annoMenu" aria-hidden="true">
+          <div class="mi dis" data-n="1"><span class="ck"></span>Awake — 42:10 left (until 10:31 AM)<span class="pin">1</span></div>
+          <div class="mi" data-n="2"><span class="ck"></span>Turn Off<span class="pin">2</span></div>
+          <div class="msep"></div>
+          <div class="mi dis" data-n="3"><span class="ck"></span>Keep Awake For<span class="pin">3</span></div>
+          <div class="mi" data-n="3"><span class="ck"></span><span class="ind"></span>Indefinitely</div>
+          <div class="mi" data-n="3"><span class="ck"></span><span class="ind"></span>15 Minutes</div>
+          <div class="mi" data-n="3"><span class="ck"></span><span class="ind"></span>30 Minutes</div>
+          <div class="mi" data-n="3"><span class="ck">✓</span><span class="ind"></span>1 Hour</div>
+          <div class="mi" data-n="3"><span class="ck"></span><span class="ind"></span>2 Hours</div>
+          <div class="mi" data-n="3"><span class="ck"></span><span class="ind"></span>4 Hours</div>
+          <div class="mi" data-n="3"><span class="ck"></span><span class="ind"></span>8 Hours</div>
+          <div class="mi" data-n="4"><span class="ck"></span><span class="ind"></span>Custom…<span class="pin">4</span></div>
+          <div class="msep"></div>
+          <div class="mi" data-n="5"><span class="ck"></span>Allow Display to Sleep<span class="pin">5</span></div>
+          <div class="mi" data-n="6"><span class="ck">✓</span>Open at Login<span class="pin">6</span></div>
+          <div class="msep"></div>
+          <div class="mi" data-n="7"><span class="ck"></span>Quit Wakeintosh<span class="pin">7</span><span class="key">⌘Q</span></div>
+        </div>
+        <ol class="notes" id="notes">
+          <li data-n="1"><div><b>Status</b><span>Says whether your Mac is being kept awake, how long is left and the time it ends. When Wakeintosh is off it reads "Off — Mac can sleep normally".</span></div></li>
+          <li data-n="2"><div><b>Turn Off</b><span>Only shows up while Wakeintosh is on. Your Mac goes back to sleeping the way it normally does.</span></div></li>
+          <li data-n="3"><div><b>Keep Awake For</b><span>Indefinitely stays on until you turn it off. The others count down from 15 minutes up to 8 hours, then turn off by themselves. Picking another one replaces the current timer.</span></div></li>
+          <li data-n="4"><div><b>Custom…</b><span>Type any number of minutes. Wakeintosh remembers the last number you used, and starts at 90 the first time.</span></div></li>
+          <li data-n="5"><div><b>Allow Display to Sleep</b><span>The screen can turn off as usual while the Mac itself keeps working. Good for downloads, backups and long builds. Changing it mid-timer keeps the time you have left.</span></div></li>
+          <li data-n="6"><div><b>Open at Login</b><span>Turned on the first time you open Wakeintosh, so it's in your menu bar after a restart. One click turns it off.</span></div></li>
+          <li data-n="7"><div><b>Quit Wakeintosh</b><span>Quitting also stops keeping your Mac awake. There's nothing left running in the background.</span></div></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="wrap">
+      <p class="kicker">What it does</p>
+      <div class="head"><h2>Small on purpose.</h2></div>
+      <div class="feats">
+        <div class="feat">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></div>
+          <h3>One click to stay awake</h3>
+          <p>Stops your Mac, its display and its disk from going to sleep, the same as running <code>caffeinate -dimsu</code> yourself.</p>
+        </div>
+        <div class="feat">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9.5 2h5"/></svg></div>
+          <h3>A timer you can see</h3>
+          <p>Pick 15 minutes to 8 hours, or any number of minutes. The time left counts down next to the icon, and your Mac goes back to normal at zero.</p>
+          <div class="eg"><span class="chip"><img src="icon-64.png" alt="">14:59</span><span class="chip"><img src="icon-64.png" alt="">1:59:59</span></div>
+        </div>
+        <div class="feat">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/><path d="M14.5 8.2a3 3 0 1 0 0 3.6 2.4 2.4 0 0 1 0-3.6z" fill="currentColor" stroke="none"/></svg></div>
+          <h3>Screen off, Mac still working</h3>
+          <p>Turn on Allow Display to Sleep and the screen turns off as usual, while downloads and builds keep going.</p>
+        </div>
+        <div class="feat">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg></div>
+          <h3>Lets go if it quits</h3>
+          <p>If Wakeintosh quits or crashes, your Mac goes back to sleeping normally. It can't leave your Mac stuck awake.</p>
+        </div>
+        <div class="feat">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 8h18"/></svg></div>
+          <h3>The icon tells you</h3>
+          <p>In colour while your Mac is being kept awake, grey when it isn't. You can tell at a glance without opening anything.</p>
+          <div class="eg"><span class="chip"><img src="icon-64.png" alt="">Awake</span><span class="chip"><img class="g" src="icon-64.png" alt="">Off</span></div>
+        </div>
+        <div class="feat">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 12h10M4 17h6"/></svg></div>
+          <h3>Menu bar only</h3>
+          <p>No Dock icon and no windows. It opens at login, sits in the menu bar and stays out of the way.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap">
+      <p class="kicker">How it works</p>
+      <div class="head">
+        <h2>It runs Apple's own <code style="font-size:.8em;background:none;border:0;padding:0">caffeinate</code>.</h2>
+        <p class="sub">macOS ships with a tool called <code>caffeinate</code> that holds your Mac awake. Wakeintosh starts it with the right options and stops it when you're done. Pick the options and see the exact command it runs.</p>
+      </div>
+      <div class="how">
+        <div class="ctl">
+          <label class="lab" id="durLab">Keep Awake For</label>
+          <div class="seg" id="durSeg" role="group" aria-labelledby="durLab"></div>
+          <div class="custom-min" id="customWrap" hidden><label for="customMin">Minutes</label><input id="customMin" type="number" min="1" value="90"></div>
+          <label class="toggle"><input type="checkbox" id="dispToggle"> Allow Display to Sleep</label>
+          <p class="how-note">The whole app is one Swift file, <a href="https://github.com/RishikeshSreekumar/wakeintosh/blob/main/main.swift">main.swift</a>. Read it in a couple of minutes.</p>
+        </div>
+        <div class="term">
+          <div class="line" id="cmdLine" aria-live="polite"></div>
+          <ul class="flags" id="flags">
+            <li data-f="d"><code>-d</code><span>Stops the display from sleeping.<small>Left out when Allow Display to Sleep is on.</small></span></li>
+            <li data-f="i"><code>-i</code><span>Stops the Mac from going to sleep when it's idle.</span></li>
+            <li data-f="m"><code>-m</code><span>Stops the disk from going to sleep when it's idle.</span></li>
+            <li data-f="s"><code>-s</code><span>Stops the system from sleeping.<small>macOS only honours this one on AC power.</small></span></li>
+            <li data-f="u"><code>-u</code><span>Tells macOS someone is using the Mac.</span></li>
+            <li data-f="w"><code>-w</code><span>Watches Wakeintosh's process ID. When the app quits or crashes, <code>caffeinate</code> exits too.</span></li>
+            <li data-f="t"><code>-t</code><span>The timer, in seconds. <code>caffeinate</code> lets go when it runs out.<small>Not used for Indefinitely.</small></span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="wrap">
+      <p class="kicker">Install</p>
+      <div class="head"><h2>Two minutes to set up.</h2></div>
+      <div class="inst">
+        <div class="card">
+          <div class="tabs" role="tablist" aria-label="Install method">
+            <button role="tab" id="t-brew" aria-controls="p-brew" aria-selected="true">Homebrew</button>
+            <button role="tab" id="t-dmg" aria-controls="p-dmg" aria-selected="false" tabindex="-1">Download</button>
+            <button role="tab" id="t-src" aria-controls="p-src" aria-selected="false" tabindex="-1">Build from source</button>
+          </div>
+          <div class="pane" id="p-brew" role="tabpanel" aria-labelledby="t-brew">
+            <div class="cmd"><span><span class="pr">$</span>brew install --cask rishikeshsreekumar/tap/wakeintosh</span><button class="copy" type="button" data-copy="brew install --cask rishikeshsreekumar/tap/wakeintosh">Copy</button></div>
+            <p>Then open Wakeintosh from Applications or Spotlight and look for the icon in your menu bar. Homebrew skips the macOS "can't verify" prompt for you.</p>
+            <p>Update later with <code>brew upgrade --cask wakeintosh</code>. Remove it with <code>brew uninstall --cask wakeintosh</code>, and add <code>--zap</code> to remove its settings too.</p>
+          </div>
+          <div class="pane" id="p-dmg" role="tabpanel" aria-labelledby="t-dmg" hidden>
+            <ol>
+              <li>Download <b>Wakeintosh-1.0.dmg</b> from the <a href="https://github.com/RishikeshSreekumar/wakeintosh/releases/latest">latest release</a>.</li>
+              <li>Open it and drag <b>Wakeintosh</b> onto <b>Applications</b>.</li>
+              <li>Open Wakeintosh from Applications.</li>
+            </ol>
+            <div class="gk">
+              <b>"Wakeintosh can't be opened"?</b> It isn't signed with a paid Apple Developer certificate yet, so macOS asks you to confirm the first time. Open <b>System Settings → Privacy &amp; Security</b>, scroll down and click <b>Open Anyway</b>. Or run this once in Terminal:
+              <div class="cmd"><span><span class="pr">$</span>xattr -dr com.apple.quarantine /Applications/Wakeintosh.app</span><button class="copy" type="button" data-copy="xattr -dr com.apple.quarantine /Applications/Wakeintosh.app">Copy</button></div>
+            </div>
+          </div>
+          <div class="pane" id="p-src" role="tabpanel" aria-labelledby="t-src" hidden>
+            <p style="margin-top:0">Needs the Xcode Command Line Tools (<code>xcode-select --install</code>).</p>
+            <div class="cmd" style="margin-top:14px"><span><span class="pr">$</span>git clone https://github.com/RishikeshSreekumar/wakeintosh.git</span><button class="copy" type="button" data-copy="git clone https://github.com/RishikeshSreekumar/wakeintosh.git">Copy</button></div>
+            <div class="cmd"><span><span class="pr">$</span>cd wakeintosh &amp;&amp; ./build.sh --install</span><button class="copy" type="button" data-copy="cd wakeintosh && ./build.sh --install">Copy</button></div>
+            <p><code>build.sh --install</code> builds a universal app, copies it to Applications and opens it.</p>
+          </div>
+          <div class="reqs"><span>macOS 13 Ventura or later</span><span>Apple Silicon and Intel</span><span>MIT license</span></div>
+        </div>
+
+        <div class="card support">
+          <svg class="mug" viewBox="0 0 64 64" aria-hidden="true"><path d="M24 6c-3 4 3 6 0 10M32 4c-3 4 3 6 0 10M40 6c-3 4 3 6 0 10" stroke="#ffe7a3" stroke-width="3" fill="none" stroke-linecap="round" opacity=".7"/><path d="M12 22h36v18a14 14 0 0 1-14 14h-8a14 14 0 0 1-14-14z" fill="#f1e9d8"/><path d="M48 27h3a7 7 0 0 1 0 14h-4" stroke="#f1e9d8" stroke-width="4" fill="none"/><circle cx="24" cy="36" r="3.4" fill="#2b2a6b"/><circle cx="36" cy="36" r="3.4" fill="#2b2a6b"/><circle cx="25" cy="35" r="1" fill="#fff"/><circle cx="37" cy="35" r="1" fill="#fff"/></svg>
+          <h3>Support the project</h3>
+          <p>If Wakeintosh got a long download or a late build over the line, you can say thanks with a coffee.</p>
+          <div class="bmc-slot">
+            <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="srishi" data-color="#F26B5B" data-emoji="" data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#2B2A6B" data-font-color="#ffffff" data-coffee-color="#FFDD00"></script>
+            <a class="btn btn-sun bmc-fallback" href="https://buymeacoffee.com/srishi">Buy me a coffee</a>
+          </div>
+          <p class="small">Bugs and ideas go to <a href="https://github.com/RishikeshSreekumar/wakeintosh/issues">GitHub issues</a>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap">
+      <p class="kicker">FAQ</p>
+      <h2>Questions people ask</h2>
+      <div class="faq">
+        <details>
+          <summary>macOS says it "can't verify" Wakeintosh. Is that normal?</summary>
+          <p>Yes. Wakeintosh isn't notarized with a paid Apple Developer certificate yet, so macOS asks once. Open System Settings, go to Privacy &amp; Security and click Open Anyway. Or run <code>xattr -dr com.apple.quarantine /Applications/Wakeintosh.app</code> in Terminal. Homebrew installs skip this step.</p>
+        </details>
+        <details>
+          <summary>Does it change my sleep settings?</summary>
+          <p>No. It doesn't touch System Settings. While it's on, it holds your Mac awake through <code>caffeinate</code>. When you turn it off, the timer runs out or you quit, your Mac goes back to the settings you already had.</p>
+        </details>
+        <details>
+          <summary>What if Wakeintosh crashes?</summary>
+          <p>Your Mac goes back to sleeping normally. Wakeintosh starts <code>caffeinate</code> with <code>-w</code> and its own process ID, so <code>caffeinate</code> exits as soon as the app does, however it ends.</p>
+        </details>
+        <details>
+          <summary>Why not just run <code>caffeinate</code> in Terminal?</summary>
+          <p>You can, and that's all Wakeintosh does underneath. It saves you the Terminal window, shows the time left in the menu bar, lets you turn the screen-sleep option on and off without starting over, and comes back after a restart.</p>
+        </details>
+        <details>
+          <summary>Does it work on battery?</summary>
+          <p>It stops idle sleep on battery too. One of the options it passes, <code>-s</code>, only counts on AC power, because that's how Apple's <code>caffeinate</code> works.</p>
+        </details>
+        <details>
+          <summary>How do I stop it opening at login?</summary>
+          <p>Click the icon and untick Open at Login. You can also remove it under System Settings → General → Login Items.</p>
+        </details>
+        <details>
+          <summary>Which Macs does it run on?</summary>
+          <p>Any Mac on macOS 13 Ventura or later. It's a universal app, so it runs natively on Apple Silicon and Intel.</p>
+        </details>
+        <details>
+          <summary>How do I uninstall it?</summary>
+          <p>With Homebrew, run <code>brew uninstall --cask wakeintosh</code> (add <code>--zap</code> to remove its settings). Otherwise quit Wakeintosh from its menu and move it from Applications to the Bin.</p>
+        </details>
+        <details>
+          <summary>Can I read the code?</summary>
+          <p>Yes. It's on <a href="https://github.com/RishikeshSreekumar/wakeintosh">GitHub</a> under the MIT license. The app is a single Swift file, and the icon is drawn in code too.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <div class="dawn">
+    <div class="bigsun" aria-hidden="true"></div>
+    <div class="wrap inner">
+      <h2>Still up by morning.</h2>
+      <p>Put it in your menu bar once. Next time a download, render or presentation needs your Mac awake, it's one click.</p>
+      <div class="cta">
+        <a class="btn btn-ink" href="https://github.com/RishikeshSreekumar/wakeintosh/releases/latest">Download Wakeintosh</a>
+        <a class="btn btn-line" id="bmcDawn" href="https://buymeacoffee.com/srishi">Buy me a coffee</a>
+      </div>
+    </div>
+    <footer>
+      <div class="wrap">
+        <span>Wakeintosh 1.0. Made by Rishikesh Sreekumar. MIT license.</span>
+        <span><a href="https://github.com/RishikeshSreekumar/wakeintosh">GitHub</a> &nbsp;·&nbsp; <a href="https://github.com/RishikeshSreekumar/wakeintosh/releases">Release notes</a> &nbsp;·&nbsp; <a href="https://buymeacoffee.com/srishi">Buy me a coffee</a></span>
+      </div>
+    </footer>
+  </div>
+</main>
+
+<script>
+  // The widget script above renders the official button in the support card.
+  // Reuse it for the button at the bottom. If it was blocked, show plain links instead.
+  if (window.bmcBtnWidget) {
+    const slot = document.getElementById("bmcDawn");
+    const tpl = document.createElement("span");
+    tpl.innerHTML = bmcBtnWidget("Buy me a coffee", "srishi", "#FBF6EB", "", "Cookie", "#2B2A6B", "#2B2A6B", "#FFDD00");
+    slot.replaceWith(...tpl.childNodes);
+  } else {
+    document.querySelectorAll(".bmc-fallback").forEach(a => a.style.display = "inline-flex");
+  }
+
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // Copy buttons
+  document.querySelectorAll(".copy").forEach(b => b.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = "Copied"; }
+    catch { b.textContent = "Press ⌘C"; const r = document.createRange(); r.selectNodeContents(b.previousElementSibling); const s = getSelection(); s.removeAllRanges(); s.addRange(r); }
+    setTimeout(() => b.textContent = "Copy", 1600);
+  }));
+
+  // Stars, placed the same way on every load
+  (function () {
+    let seed = 7;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const box = document.getElementById("stars");
+    for (let i = 0; i < 70; i++) {
+      const s = document.createElement("i");
+      const size = rnd() < .15 ? 3 : 2;
+      s.style.cssText = `left:${(rnd() * 100).toFixed(2)}%;top:${(rnd() * 70).toFixed(2)}%;width:${size}px;height:${size}px;opacity:${(.35 + rnd() * .6).toFixed(2)};animation-delay:${(-rnd() * 4).toFixed(2)}s`;
+      box.appendChild(s);
+    }
+  })();
+
+  // Scale the demo Mac to fit narrow screens
+  const mac = document.getElementById("mac"), macfit = document.getElementById("macfit");
+  // zoom shrinks the layout box too; browsers without it get a clipped transform.
+  const canZoom = CSS.supports("zoom", "0.5");
+  function fitMac() {
+    const s = Math.min(1, macfit.clientWidth / 460);
+    if (canZoom) { mac.style.zoom = s < 1 ? s : ""; return; }
+    macfit.style.overflow = s < 1 ? "hidden" : "";
+    mac.style.transform = s < 1 ? `scale(${s})` : "";
+    macfit.style.height = s < 1 ? (mac.offsetHeight * s) + "px" : "";
+  }
+  addEventListener("resize", fitMac);
+  fitMac();
+
+  /* ---------------- The demo ----------------
+     Mirrors main.swift: the same menu items, checkmarks, status text, timer
+     format and caffeinate arguments. Demo time runs 60x real time. */
+  const SPEED = 60;
+  const PID = 4821;
+  const PRESETS = [["Indefinitely", null], ["15 Minutes", 15], ["30 Minutes", 30], ["1 Hour", 60], ["2 Hours", 120], ["4 Hours", 240], ["8 Hours", 480]];
+  // Idle thresholds in demo minutes for when nothing holds the Mac awake.
+  const DIM_AT = 8, DISPLAY_OFF_AT = 10, SYSTEM_SLEEP_AT = 15;
+
+  const startReal = performance.now();
+  const startDemo = (() => { const d = new Date(); d.setHours(9, 41, 0, 0); return d.getTime(); })();
+  const demoNow = () => startDemo + (performance.now() - startReal) * SPEED;
+
+  const st = {
+    running: true,           // the app is running (false after Quit)
+    awake: false,            // caffeinate is running
+    args: null,
+    endDate: null,           // demo ms, null = indefinitely
+    activeMinutes: null,
+    allowDisplaySleep: false,
+    openAtLogin: true,
+    customMinutes: 0,
+    lastActivity: startDemo,
+    display: "on",           // on | dim | off
+    system: "awake",         // awake | asleep
+    download: .18,
+    doneAt: 0,
+  };
+
+  const $ = id => document.getElementById(id);
+  const mbItem = $("mbItem"), mbTitle = $("mbTitle"), mbIcon = $("mbIcon"), menu = $("wkMenu");
+  const alertBox = $("alert"), alertField = $("alertField");
+
+  function remainingText() {
+    if (st.endDate == null) return null;
+    const s = Math.max(0, Math.round((st.endDate - demoNow()) / 1000));
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    const p = n => String(n).padStart(2, "0");
+    return h > 0 ? `${h}:${p(m)}:${p(sec)}` : `${m}:${p(sec)}`;
+  }
+  const shortTime = ms => new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  function statusText() {
+    if (!st.awake) return "Off — Mac can sleep normally";
+    const left = remainingText();
+    if (st.endDate != null && left) return `Awake — ${left} left (until ${shortTime(st.endDate)})`;
+    return "Awake — indefinitely";
+  }
+  const isCustom = () => st.activeMinutes != null && !PRESETS.some(p => p[1] === st.activeMinutes);
+
+  // caffeinate
+  function launch(seconds) {
+    stop();
+    st.args = [st.allowDisplaySleep ? "-imsu" : "-dimsu", "-w", String(PID)];
+    if (seconds != null) st.args.push("-t", String(seconds));
+    st.awake = true;
+    st.endDate = seconds != null ? demoNow() + seconds * 1000 : null;
+    refresh();
+  }
+  function stop() {
+    st.awake = false; st.args = null; st.endDate = null; st.activeMinutes = null;
+  }
+  function start(minutes) {
+    launch(minutes != null ? minutes * 60 : null);
+    st.activeMinutes = minutes;
+  }
+  function toggleDisplaySleep() {
+    st.allowDisplaySleep = !st.allowDisplaySleep;
+    // Restart with the same remaining time so the new flags apply.
+    if (st.awake) {
+      const remaining = st.endDate != null ? Math.max(1, Math.trunc((st.endDate - demoNow()) / 1000)) : null;
+      const minutes = st.activeMinutes;
+      launch(remaining);
+      st.activeMinutes = minutes;
+    }
+  }
+
+  // Menu, rebuilt each time it opens (menuNeedsUpdate)
+  function buildMenu() {
+    const rows = [];
+    const add = (title, { dis = false, check = false, indent = false, key = "", act = null, role = "menuitem" } = {}) => rows.push({ title, dis, check, indent, key, act, role });
+    const sep = () => rows.push(null);
+    add(statusText(), { dis: true });
+    if (st.awake) add("Turn Off", { act: () => { stop(); refresh(); } });
+    sep();
+    add("Keep Awake For", { dis: true });
+    for (const [title, minutes] of PRESETS) {
+      add(title, { indent: true, role: "menuitemcheckbox", check: st.awake && st.activeMinutes === minutes && !isCustom(), act: () => start(minutes) });
+    }
+    add("Custom…", { indent: true, role: "menuitemcheckbox", check: st.awake && isCustom(), act: openCustom });
+    sep();
+    add("Allow Display to Sleep", { role: "menuitemcheckbox", check: st.allowDisplaySleep, act: toggleDisplaySleep });
+    add("Open at Login", { role: "menuitemcheckbox", check: st.openAtLogin, act: () => { st.openAtLogin = !st.openAtLogin; } });
+    sep();
+    add("Quit Wakeintosh", { key: "⌘Q", act: quit });
+
+    menu.innerHTML = "";
+    for (const r of rows) {
+      if (!r) { const s = document.createElement("div"); s.className = "msep"; s.setAttribute("role", "separator"); menu.appendChild(s); continue; }
+      const el = document.createElement("div");
+      el.className = "mi" + (r.dis ? " dis" : "");
+      el.setAttribute("role", r.role);
+      if (r.role === "menuitemcheckbox") el.setAttribute("aria-checked", String(r.check));
+      if (r.dis) el.setAttribute("aria-disabled", "true"); else el.tabIndex = -1;
+      el.innerHTML = `<span class="ck">${r.check ? "✓" : ""}</span>${r.indent ? '<span class="ind"></span>' : ""}<span></span>${r.key ? `<span class="key">${r.key}</span>` : ""}`;
+      el.children[r.indent ? 2 : 1].textContent = r.title;
+      if (!r.dis) el.addEventListener("click", () => { closeMenu(true); r.act(); refresh(); });
+      menu.appendChild(el);
+    }
+  }
+  const menuItems = () => [...menu.querySelectorAll(".mi:not(.dis)")];
+  function openMenu(focusFirst) {
+    buildMenu();
+    menu.hidden = false;
+    mbItem.classList.add("open");
+    mbItem.setAttribute("aria-expanded", "true");
+    if (focusFirst) menuItems()[0]?.focus();
+  }
+  function closeMenu(returnFocus) {
+    if (menu.hidden) return;
+    menu.hidden = true;
+    mbItem.classList.remove("open");
+    mbItem.setAttribute("aria-expanded", "false");
+    if (returnFocus) mbItem.focus({ preventScroll: true });
+  }
+  mbItem.addEventListener("click", () => menu.hidden ? openMenu(false) : closeMenu(false));
+  mbItem.addEventListener("keydown", e => {
+    if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") { e.preventDefault(); openMenu(true); }
+  });
+  menu.addEventListener("keydown", e => {
+    const items = menuItems(), i = items.indexOf(document.activeElement);
+    if (e.key === "ArrowDown") { e.preventDefault(); items[(i + 1) % items.length].focus(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); items[(i - 1 + items.length) % items.length].focus(); }
+    else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); document.activeElement.click(); }
+    else if (e.key === "Escape" || e.key === "Tab") { e.preventDefault(); closeMenu(true); }
+  });
+  document.addEventListener("pointerdown", e => {
+    if (!menu.hidden && !menu.contains(e.target) && !mbItem.contains(e.target)) closeMenu(false);
+  });
+
+  // Custom… (NSAlert)
+  function openCustom() {
+    alertField.value = String(st.customMinutes || 90);
+    alertBox.hidden = false;
+    alertField.focus({ preventScroll: true });
+    alertField.select();
+  }
+  function closeCustom(ok) {
+    if (alertBox.hidden) return;
+    const raw = alertField.value.trim();
+    alertBox.hidden = true;
+    mbItem.focus({ preventScroll: true });
+    if (!ok || !/^[+-]?\d+$/.test(raw)) return;
+    const minutes = parseInt(raw, 10);
+    if (!(minutes > 0)) return;
+    st.customMinutes = minutes;
+    start(minutes);
+    refresh();
+  }
+  $("alertStart").addEventListener("click", () => closeCustom(true));
+  $("alertCancel").addEventListener("click", () => closeCustom(false));
+  alertField.addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); closeCustom(true); }
+    if (e.key === "Escape") { e.preventDefault(); closeCustom(false); }
+  });
+
+  function quit() {
+    stop();
+    st.running = false;
+    refresh();
+  }
+
+  // Any click or key on the demo Mac counts as using it. A click while the
+  // screen is off only wakes it, like a real Mac.
+  const screen = $("screen");
+  let swallow = false;
+  function activity(e) {
+    const asleep = st.display !== "on";
+    st.lastActivity = demoNow();
+    if (asleep && e && e.type === "pointerdown") { swallow = true; e.preventDefault(); e.stopPropagation(); tick(); }
+  }
+  mac.addEventListener("pointerdown", activity, true);
+  mac.addEventListener("keydown", () => activity(), true);
+  mac.addEventListener("click", e => { if (swallow) { swallow = false; e.preventDefault(); e.stopPropagation(); } }, true);
+
+  // UI refresh (refresh() in main.swift) plus the scene around it
+  function refresh() {
+    mbItem.hidden = !st.running;
+    mbItem.classList.toggle("off", !st.awake);
+    mbIcon.alt = st.awake ? "Wakeintosh awake" : "Wakeintosh off";
+    const left = st.awake ? remainingText() : null;
+    mbTitle.textContent = left ? " " + left : "";
+    mbItem.title = "Wakeintosh: " + statusText();
+    $("roApp").innerHTML = "";
+    if (st.running) $("roApp").textContent = statusText();
+    else {
+      $("roApp").textContent = "Not running";
+      const b = document.createElement("button");
+      b.className = "reopen"; b.type = "button"; b.textContent = "Open Wakeintosh";
+      b.addEventListener("click", () => { st.running = true; refresh(); });
+      $("roApp").appendChild(b);
+    }
+    const cmd = $("roCmd");
+    if (st.args) { cmd.innerHTML = ""; const c = document.createElement("code"); c.textContent = "caffeinate " + st.args.join(" "); cmd.appendChild(c); }
+    else cmd.textContent = "Nothing";
+  }
+
+  const eyes = $("eyes"), shade = $("shade"), zzz = $("zzz"), led = $("led"), hero = $("hero");
+  let lastReal = performance.now(), lastRo = "";
+  function tick() {
+    const nowReal = performance.now(), dt = (nowReal - lastReal) / 1000; lastReal = nowReal;
+    const now = demoNow();
+
+    // caffeinate -t ran out: the app notices and turns itself off.
+    if (st.awake && st.endDate != null && now >= st.endDate) { stop(); closeMenu(false); }
+
+    // Menu or alert open means someone is using the Mac.
+    if (!menu.hidden || !alertBox.hidden) st.lastActivity = now;
+    const idle = (now - st.lastActivity) / 60000;
+
+    const holdSystem = st.awake;
+    const holdDisplay = st.awake && !st.allowDisplaySleep;
+    st.system = !holdSystem && idle >= SYSTEM_SLEEP_AT ? "asleep" : "awake";
+    if (st.system === "asleep") st.display = "off";
+    else if (holdDisplay) st.display = "on";
+    else st.display = idle >= DISPLAY_OFF_AT ? "off" : idle >= DIM_AT ? "dim" : "on";
+
+    // The download only moves while the Mac is awake.
+    if (st.system === "awake") {
+      if (st.download < 1) st.download = Math.min(1, st.download + dt * 0.006);
+      else if (!st.doneAt) st.doneAt = nowReal;
+      else if (nowReal - st.doneAt > 3500) { st.download = 0; st.doneAt = 0; }
+    }
+    const pct = Math.floor(st.download * 100);
+    $("dlBar").style.width = pct + "%";
+    $("dlPct").textContent = st.download >= 1 ? "Done" : st.system === "asleep" ? pct + "% · paused" : pct + "%";
+    $("dlName").textContent = st.download >= 1 ? "Downloaded Footage.zip" : "Downloading Footage.zip";
+
+    shade.className = "shade" + (st.display === "dim" ? " dim" : st.display === "off" ? " off" : "");
+    zzz.classList.toggle("on", st.display === "off");
+    zzz.innerHTML = st.system === "asleep" ? "Asleep<br>Click to wake" : "Display off, Mac still working<br>Click to wake";
+    eyes.style.setProperty("--lid", st.display === "dim" ? .55 : st.awake ? 0 : .18);
+    led.classList.toggle("sleeping", st.system === "asleep");
+    hero.dataset.sky = st.system === "asleep" ? "night" : st.display !== "on" ? "dusk" : "day";
+
+    const clockTxt = new Date(now).toLocaleString([], { weekday: "short" }) + " " + shortTime(now);
+    $("clock").textContent = clockTxt;
+
+    const disp = st.display === "on" ? "On" : st.display === "dim" ? "Dimmed" : "Asleep";
+    const macTxt = st.system === "awake" ? (st.download >= 1 ? "Awake" : "Awake, downloading") : "Asleep, download paused";
+    const ro = disp + "|" + macTxt;
+    if (ro !== lastRo) {
+      lastRo = ro;
+      $("roDisplay").textContent = disp;
+      $("roDisplay").className = "state" + (st.display === "on" ? "" : st.display === "dim" ? " warn" : " bad");
+      $("roMac").textContent = macTxt;
+      $("roMac").className = "state" + (st.system === "awake" ? "" : " bad");
+    }
+    refresh();
+  }
+  setInterval(tick, 100);
+  tick();
+
+  // Blink now and then while the screen is on
+  if (!reduceMotion) setInterval(() => {
+    if (st.display !== "on" || st.awake) return;
+    eyes.classList.add("blink");
+    setTimeout(() => eyes.classList.remove("blink"), 140);
+  }, 3800);
+
+  /* ---------------- Annotated menu ---------------- */
+  const notes = document.getElementById("notes");
+  const annoRows = [...document.querySelectorAll("#annoMenu .mi")];
+  function hl(n) {
+    annoRows.forEach(r => r.classList.toggle("hl", r.dataset.n === n && !r.classList.contains("dis")));
+    notes.querySelectorAll("li").forEach(l => l.classList.toggle("hl", l.dataset.n === n));
+  }
+  notes.querySelectorAll("li").forEach(l => l.addEventListener("mouseenter", () => hl(l.dataset.n)));
+  annoRows.forEach(r => r.addEventListener("mouseenter", () => hl(r.dataset.n)));
+  document.querySelector(".anno").addEventListener("mouseleave", () => hl(null));
+
+  /* ---------------- caffeinate command builder ---------------- */
+  (function () {
+    const seg = document.getElementById("durSeg"), customWrap = document.getElementById("customWrap");
+    const customMin = document.getElementById("customMin"), disp = document.getElementById("dispToggle");
+    const line = document.getElementById("cmdLine"), flags = document.getElementById("flags");
+    const opts = [...PRESETS, ["Custom…", "custom"]];
+    let pick = 15;
+    opts.forEach(([title, val]) => {
+      const b = document.createElement("button");
+      b.type = "button"; b.textContent = title; b.setAttribute("aria-pressed", String(val === pick));
+      b.addEventListener("click", () => {
+        pick = val;
+        seg.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+        customWrap.hidden = val !== "custom";
+        render();
+      });
+      seg.appendChild(b);
+    });
+    customMin.addEventListener("input", render);
+    disp.addEventListener("change", render);
+
+    function render() {
+      let minutes = pick;
+      if (pick === "custom") { const n = parseInt(customMin.value, 10); minutes = n > 0 ? n : null; }
+      const first = disp.checked ? "-imsu" : "-dimsu";
+      const parts = [[first, "dimsu"], ["-w", "w"], ["<wakeintosh pid>", "w"]];
+      if (minutes != null) parts.push(["-t", "t"], [String(minutes * 60), "t"]);
+      line.innerHTML = '<span class="pr">$ </span>caffeinate ';
+      parts.forEach(([text, f], i) => {
+        if (i === 0) {
+          // Split -dimsu into its letters so each can be pointed at.
+          const s = document.createElement("span"); s.className = "tok"; s.dataset.f = "all"; s.textContent = "-";
+          line.appendChild(s);
+          for (const ch of text.slice(1)) { const c = document.createElement("span"); c.className = "tok"; c.dataset.f = ch; c.textContent = ch; line.appendChild(c); }
+        } else {
+          line.appendChild(document.createTextNode(" "));
+          const s = document.createElement("span"); s.className = "tok"; s.dataset.f = f; s.textContent = text; line.appendChild(s);
+        }
+      });
+      flags.querySelector('[data-f="d"]').classList.toggle("gone", disp.checked);
+      flags.querySelector('[data-f="t"]').classList.toggle("gone", minutes == null);
+      line.querySelectorAll(".tok").forEach(t => {
+        t.addEventListener("mouseenter", () => mark(t.dataset.f));
+        t.addEventListener("mouseleave", () => mark(null));
+      });
+    }
+    function mark(f) {
+      line.querySelectorAll(".tok").forEach(t => t.classList.toggle("hl", f != null && t.dataset.f === f));
+      flags.querySelectorAll("li").forEach(l => l.classList.toggle("hl", l.dataset.f === f));
+    }
+    flags.querySelectorAll("li").forEach(l => {
+      l.addEventListener("mouseenter", () => mark(l.dataset.f));
+      l.addEventListener("mouseleave", () => mark(null));
+    });
+    render();
+  })();
+
+  /* ---------------- Install tabs ---------------- */
+  (function () {
+    const tabs = [...document.querySelectorAll('[role="tab"]')];
+    function select(t) {
+      tabs.forEach(x => {
+        const on = x === t;
+        x.setAttribute("aria-selected", String(on));
+        x.tabIndex = on ? 0 : -1;
+        document.getElementById(x.getAttribute("aria-controls")).hidden = !on;
+      });
+    }
+    tabs.forEach((t, i) => {
+      t.addEventListener("click", () => select(t));
+      t.addEventListener("keydown", e => {
+        const d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+        if (d) { const n = tabs[(i + d + tabs.length) % tabs.length]; select(n); n.focus(); }
+      });
+    });
+  })();
+</script>
+</body>
+</html>
